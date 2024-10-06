@@ -1,11 +1,12 @@
 local _export = {};
 
-function _export:GetSignal(GroupName:string)
-    local bind:BindableEvent = script:FindFirstChild(GroupName);
+function _export:GetSignal(framerate:number)
+    local gname = tostring(framerate);
+    local bind:BindableEvent = script:FindFirstChild(gname);
     if (not bind) then
         local _bind = Instance.new("BindableEvent") :: BindableEvent;
         bind = _bind;
-        _bind.Name = GroupName;
+        _bind.Name = gname;
         _bind.Parent = script;
     end
     return bind.Event;

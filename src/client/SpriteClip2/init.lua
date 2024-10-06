@@ -27,4 +27,7 @@ local CompatibilitySprite = require(script.CompatibilitySprite);
 _export.CompatibilitySprite = CompatibilitySprite;
 export type CompatibilitySprite = CompatibilitySprite.CompatibilitySprite;
 
+local ImageUtils = require(script.ImageUtils);
+_export.ImageUtils = ImageUtils;
+
 return _export;

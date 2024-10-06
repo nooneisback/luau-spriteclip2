@@ -1,15 +1,5 @@
 --@native
 
---[[
-    A more advanced version of ScriptedEditableSprite that doesn't apply currentFrame automatically,
-    instead it allows you to manually select the sprite's position on each render tick.
-    To do so, give it an onRenderCallback function through props or directly, which can call SetFrame
-    on each render tick.
-
-    Check type definitions below for detailed explanation
-        format: [default] description
-]]
-
 -- The main sprite type
 export type ScriptedEditableSprite = {
     -- properties -- removed: spriteCount, columnCount
@@ -27,6 +17,7 @@ export type ScriptedEditableSprite = {
     Pause:  (self:ScriptedEditableSprite)->(boolean);                     -- pauses the animation
     SetFrame:(self:ScriptedEditableSprite, frame:Vector2)->(); --MODIFIED -- manually sets the current frame
     Advance:(self:ScriptedEditableSprite)->();   --MODIFIED               -- manually advances to the next frame, or 1 if last
+    LoadInputImage: (self:ScriptedEditableSprite, newInput:EditableImage|string)->();   -- async if given a string, replaces the input image with a new one
     -- callbacks
     onRenderCallback: (self:ScriptedEditableSprite)->()?;   --ADDED       
 };
@@ -37,7 +28,7 @@ export type ScriptedEditableSpriteProps = {
     outputImage:        EditableImage?;
     outputPosition:     Vector2?;
     currentFrame:       number?;
-    spriteSize:         Vector2;       -- REQUIRED
+    spriteSize:         Vector2?;
     spriteOffset:       Vector2?;
     edgeOffset:         Vector2?;
     frameRate:          number?;
@@ -64,7 +55,7 @@ local ScriptedEditableSprite = {}; do
         local raw = self.__raw;
         if (raw.isPlaying) then return false; end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
         return true;

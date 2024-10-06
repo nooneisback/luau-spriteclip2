@@ -1,12 +1,5 @@
 --@native
 
---[[
-    The classic sprite, similar to how the original module worked
-    Directly applies offset to the adornee image label/button
-    Check type definitions below for detailed explanation
-        format: [default] description
-]]
-
 -- The main sprite type
 export type ImageSprite = {
     -- properties
@@ -62,7 +55,7 @@ local ImageSprite = {}; do
         if (raw.isPlaying) then return false; end
         if (playFrom) then self:SetFrame(playFrom); end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
         return true;

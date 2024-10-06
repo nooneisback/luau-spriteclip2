@@ -1,12 +1,5 @@
 --@native
 
---[[
-    A Sprite that takes input and gives output as an EditableImage
-    Check type definitions below for detailed explanation
-        format: [default] description
-]]
-
-
 -- The main sprite type
 export type EditableSprite = {
     -- properties
@@ -28,7 +21,7 @@ export type EditableSprite = {
     Stop:   (self:EditableSprite)->(boolean);                                   -- pauses the animation and sets the current frame to 1
     SetFrame:(self:EditableSprite, frame:number)->();                           -- manually sets the current frame
     Advance:(self:EditableSprite)->();                                          -- manually advances to the next frame, or 1 if last
-    LoadInputImage: (self:EditableSprite, newinput:EditableImage|string)->();   -- ASYNC if given a string, replaces the input image with a new one
+    LoadInputImage: (self:EditableSprite, newInput:EditableImage|string)->();   -- ASYNC if given a string, replaces the input image with a new one
 };
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
@@ -64,7 +57,7 @@ local EditableSprite = {}; do
         if (raw.isPlaying) then return false; end
         if (playFrom) then self:SetFrame(playFrom); end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
         return true;
@@ -157,7 +150,7 @@ _export.new = function(props:EditableSpriteProps)
     raw.outputImage = props.outputImage;
     raw.outputPosition = props.outputPosition or Vector2.zero;
     raw.currentFrame = props.currentFrame or 1;
-    raw.spriteSize = props.spriteSize or error("Sprite size must be provided");
+    raw.spriteSize = props.spriteSize or Vector2.zero;
     raw.spriteOffset = props.spriteOffset or Vector2.zero;
     raw.edgeOffset = props.edgeOffset or Vector2.zero;
     raw.spriteCount = props.spriteCount or 0;

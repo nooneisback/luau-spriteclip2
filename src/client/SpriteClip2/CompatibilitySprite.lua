@@ -1,11 +1,5 @@
 --@native
 
---[[
-    Compatibility sprite type that has an almost idential api to the original SpriteClip module
-    Check type definitions below for detailed explanation
-        format: [default] description
-]]
-
 -- The main sprite type
 export type CompatibilitySprite = {
         -- properties
@@ -28,7 +22,7 @@ export type CompatibilitySprite = {
 		Stop:(self:CompatibilitySprite)->(boolean);
 		Advance:(self:CompatibilitySprite, advanceby:number)->();
 		Destroy:(self:CompatibilitySprite)->();
-        Clone:(self:CompatibilitySprite)->();
+        Clone:(self:CompatibilitySprite)->(CompatibilitySprite);
 }
 
 -- Don't touch anything below unless you know what you're doing

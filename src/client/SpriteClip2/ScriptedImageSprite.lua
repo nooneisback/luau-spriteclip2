@@ -1,15 +1,5 @@
 --@native
 
---[[
-    A more advanced version of SimpleSprite that doesn't apply currentFrame automatically,
-    instead it allows you to manually select the sprite's position on each render tick.
-    To do so, give it an onRenderCallback function through props or directly, which can call SetFrame
-    on each render tick.
-
-    Check type definitions below for detailed explanation
-        format: [default] description
-]]
-
 -- The main sprite type
 export type ScriptedImageSprite = {
     -- properties -- removed: spriteCount, columnCount
@@ -61,7 +51,7 @@ local ScriptedImageSprite = {}; do
         local raw = self.__raw;
         if (raw.isPlaying) then return false; end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
         return true;
