@@ -49,7 +49,7 @@ local _export = {};
 
 -- Internal type with hidden values
 export type ScriptedImageSpriteInternal = {
-    __raw:ScriptedImageSprite;
+    __raw:ScriptedImageSpriteInternal;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
 } & ScriptedImageSprite;
@@ -58,19 +58,20 @@ local ScriptedImageSprite = {}; do
     ScriptedImageSprite.__tostring = function() return "ScriptedImageSprite"; end
     ScriptedImageSprite.__index = ScriptedImageSprite;
     function ScriptedImageSprite.Play(self:ScriptedImageSpriteInternal)
-        if (self.isPlaying) then return false; end
         local raw = self.__raw;
+        if (raw.isPlaying) then return false; end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
             self:Advance();
         end);
         return true;
     end
     function ScriptedImageSprite.Pause(self:ScriptedImageSpriteInternal)
-        if (not self.isPlaying) then return false; end
         local raw = self.__raw;
+        if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
+        raw.__playcon = nil;
         return true;
     end
     function ScriptedImageSprite.Advance(self:ScriptedImageSpriteInternal)
@@ -79,11 +80,15 @@ local ScriptedImageSprite = {}; do
     end
 
     function ScriptedImageSprite.SetFrame(self:ScriptedImageSpriteInternal, newframe:Vector2)
-        self.__raw.currentFrame = newframe;
-        local adornee = self.adornee :: ImageLabel;
+        local raw = self.__raw;
+        raw.currentFrame = newframe;
+        local adornee = raw.adornee :: ImageLabel;
         if (not adornee) then return; end
-        local posx = self.edgeOffset.X + (newframe.X-1)*(self.spriteSize.X + self.spriteOffset.X);
-        local posy = self.edgeOffset.Y + (newframe.Y-1)*(self.spriteSize.Y + self.spriteOffset.Y);
+        local edgeoff = raw.edgeOffset;
+        local sprtoff = raw.spriteOffset;
+        local size = raw.spriteSize;
+        local posx = edgeoff.X + (newframe.X-1)*(size.X + sprtoff.X);
+        local posy = edgeoff.Y + (newframe.Y-1)*(size.Y + sprtoff.Y);
         adornee.ImageRectOffset = Vector2.new(posx, posy);
     end
 end
@@ -104,15 +109,15 @@ local ProxyMetaNewIndex = function(self:ScriptedImageSpriteInternal, i:string, v
     elseif (i=="spriteSize" or i=="adornee") then
         local adornee = raw.adornee;
         if (adornee) then
-            if (self.spriteSheetId~="") then
-                adornee.spriteSheetId = self.spriteSheetId;
+            if (raw.spriteSheetId~="") then
+                adornee.Image = raw.spriteSheetId;
             end
             adornee.ImageRectSize = raw.spriteSize;
-            self:SetFrame(self.currentFrame);
+            self:SetFrame(raw.currentFrame);
         end
     elseif (i=="edgeOffset" or i=="spriteOffset") then
-        if (self.adornee) then
-            self:SetFrame(self.currentFrame);
+        if (raw.adornee) then
+            self:SetFrame(raw.currentFrame);
         end
     elseif (i=="spriteSheetId") then
         local adornee = raw.adornee;

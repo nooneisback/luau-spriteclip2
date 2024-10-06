@@ -49,7 +49,7 @@ local _export = {};
 
 -- Internal type with hidden values
 export type ImageSpriteInternal = {
-    __raw:ImageSprite;
+    __raw:ImageSpriteInternal;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
 } & ImageSprite;
@@ -58,9 +58,9 @@ local ImageSprite = {}; do
     ImageSprite.__tostring = function() return "ImageSprite"; end
     ImageSprite.__index = ImageSprite;
     function ImageSprite.Play(self:ImageSpriteInternal, playFrom:number?)
-        if (self.isPlaying) then return false; end
-        if (playFrom) then self:SetFrame(playFrom); end
         local raw = self.__raw;
+        if (raw.isPlaying) then return false; end
+        if (playFrom) then self:SetFrame(playFrom); end
         raw.isPlaying = true;
         raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
             self:Advance();
@@ -68,10 +68,11 @@ local ImageSprite = {}; do
         return true;
     end
     function ImageSprite.Pause(self:ImageSpriteInternal)
-        if (not self.isPlaying) then return false; end
         local raw = self.__raw;
+        if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
+        raw.__playcon = nil;
         return true;
     end
     function ImageSprite.Stop(self:ImageSpriteInternal)
@@ -79,9 +80,10 @@ local ImageSprite = {}; do
         return self:Pause();
     end
     function ImageSprite.Advance(self:ImageSpriteInternal)
-        local nextframe = self.currentFrame + 1;
-        if (nextframe > self.spriteCount) then
-            if (self.isPlaying and not self.isLooped) then
+        local raw = self.__raw;
+        local nextframe = raw.currentFrame + 1;
+        if (nextframe > raw.spriteCount) then
+            if (raw.isPlaying and not raw.isLooped) then
                 self:Pause();
                 return;
             end
@@ -91,16 +93,21 @@ local ImageSprite = {}; do
     end
 
     function ImageSprite.SetFrame(self:ImageSpriteInternal, newframe:number)
-        if (newframe<1 or newframe>self.spriteCount) then
+        local raw = self.__raw;
+        if (newframe<1 or newframe>raw.spriteCount) then
             error("Invalid frame number "..newframe);
         end
-        self.__raw.currentFrame = newframe;
-        local adornee = self.adornee :: ImageLabel;
+        raw.currentFrame = newframe;
+        local adornee = raw.adornee :: ImageLabel;
         if (not adornee) then return; end
-        local ix = (newframe-1) % self.columnCount;
-        local iy = math.floor((newframe-1) / self.columnCount);
-        local posx = self.edgeOffset.X + ix*(self.spriteSize.X + self.spriteOffset.X);
-        local posy = self.edgeOffset.Y + iy*(self.spriteSize.Y + self.spriteOffset.Y);
+        local col = raw.columnCount;
+        local ix = (newframe-1) % col;
+        local iy = math.floor((newframe-1) / col);
+        local size = raw.spriteSize;
+        local offedge = raw.edgeOffset;
+        local offsprt = raw.spriteOffset;
+        local posx = offedge.X + ix*(size.X + offsprt.X);
+        local posy = offedge.Y + iy*(size.Y + offsprt.Y);
         adornee.ImageRectOffset = Vector2.new(posx, posy);
     end
 end
@@ -121,15 +128,15 @@ local ProxyMetaNewIndex = function(self:ImageSpriteInternal, i:string, v1:any)
     elseif (i=="spriteSize" or i=="adornee") then
         local adornee = raw.adornee;
         if (adornee) then
-            if (self.spriteSheetId~="") then
-                adornee.Image = self.spriteSheetId;
+            if (raw.spriteSheetId~="") then
+                adornee.Image = raw.spriteSheetId;
             end
             adornee.ImageRectSize = raw.spriteSize;
-            self:SetFrame(self.currentFrame);
+            self:SetFrame(raw.currentFrame);
         end
     elseif (i=="columnCount" or i=="spriteCount" or i=="edgeOffset" or i=="spriteOffset") then
-        if (self.adornee) then
-            self:SetFrame(self.currentFrame);
+        if (raw.adornee) then
+            self:SetFrame(raw.currentFrame);
         end
     elseif (i=="spriteSheetId") then
         local adornee = raw.adornee;

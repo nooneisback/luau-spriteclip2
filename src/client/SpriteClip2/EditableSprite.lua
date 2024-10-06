@@ -12,6 +12,7 @@ export type EditableSprite = {
     -- properties
     inputImage:         EditableImage?; -- READONLY [nil] editable image to read the pixel data from, change using LoadInputImage
     outputImage:        EditableImage;  -- [nil] editable image to write the pixel data to, can be replaced with a different editable image
+    outputPosition:     Vector2;        -- [0,0] where to render on the output image, useful for storing multiple sprites as an atlas
     currentFrame:       number;         -- READONLY [1] index of the frame that is currently visible (starts from 1)
     spriteSize:         Vector2;        -- [0,0] the size of the individual sprites represented by the sprite sheet in pixels
     spriteOffset:       Vector2;        -- [0,0] offset between individual sprites in pixels
@@ -33,6 +34,8 @@ export type EditableSprite = {
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
 export type EditableSpriteProps = {
     inputImage:         EditableImage|string?;
+    outputImage:        EditableImage?;
+    outputPosition:     Vector2?;
     currentFrame:       number?;
     spriteSize:         Vector2;       -- REQUIRED
     spriteOffset:       Vector2?;
@@ -57,18 +60,18 @@ local EditableSprite = {}; do
     EditableSprite.__index = EditableSprite;
     EditableSprite.__tostring = function() return "EditableSprite"; end
     function EditableSprite.Play(self:EditableSpriteInternal, playFrom:number?)
-        if (self.isPlaying) then return false; end
-        if (playFrom) then self:SetFrame(playFrom); end
         local raw = self.__raw;
+        if (raw.isPlaying) then return false; end
+        if (playFrom) then self:SetFrame(playFrom); end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
             self:Advance();
         end);
         return true;
     end
     function EditableSprite.Pause(self:EditableSpriteInternal)
-        if (not self.isPlaying) then return false; end
         local raw = self.__raw;
+        if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
         return true;
@@ -78,9 +81,10 @@ local EditableSprite = {}; do
         return self:Pause();
     end
     function EditableSprite.Advance(self:EditableSpriteInternal)
-        local nextframe = self.currentFrame + 1;
-        if (nextframe > self.spriteCount) then
-            if (self.isPlaying and not self.isLooped) then
+        local raw = self.__raw;
+        local nextframe = raw.currentFrame + 1;
+        if (nextframe > raw.spriteCount) then
+            if (raw.isPlaying and not raw.isLooped) then
                 self:Pause();
                 return;
             end
@@ -90,18 +94,22 @@ local EditableSprite = {}; do
     end
 
     function EditableSprite.SetFrame(self:EditableSpriteInternal, newframe:number)
-        if (newframe<1 or newframe>self.spriteCount) then
+        local raw = self.__raw;
+        if (newframe<1 or newframe>raw.spriteCount) then
             error("Invalid frame number "..newframe);
         end
-        self.__raw.currentFrame = newframe;
-        local input = self.inputImage :: EditableImage;
+        raw.currentFrame = newframe;
+        local input = raw.inputImage :: EditableImage;
         if (not input) then return; end
-        local ix = (newframe-1) % self.columnCount;
-        local iy = math.floor((newframe-1) / self.columnCount);
-        local off = self.spriteOffset;
-        local size = self.spriteSize;
-        local pos = self.edgeOffset + Vector2.new(ix,iy) * (size+off);
-        self.outputImage:WritePixels(Vector2.zero, size, input:ReadPixels(pos, size));
+        local col = raw.columnCount;
+        local ix = (newframe-1) % col;
+        local iy = math.floor((newframe-1) / col);
+        local size = raw.spriteSize;
+        local offedge = raw.edgeOffset;
+        local offsprt = raw.spriteOffset;
+        local posx = offedge.X + ix*(size.X + offsprt.X);
+        local posy = offedge.Y + iy*(size.Y + offsprt.Y);
+        self.outputImage:WritePixels(raw.outputPosition, size, input:ReadPixels(Vector2.new(posx,posy), size));
     end
 
     function EditableSprite.LoadInputImage(self:EditableSpriteInternal, newinput:EditableImage|string)
@@ -124,7 +132,7 @@ local ProxyMetaNewIndex = function(self:EditableSpriteInternal, i:string, v1:any
         if (raw.isPlaying) then
             self:Pause(); self:Play();
         end
-    elseif (i=="outputImage") then
+    elseif (i=="outputImage" or i=="outputPosition") then
         self:SetFrame(raw.currentFrame);
     elseif (i=="spriteSize") then
         raw.outputImage.Size = v1;
@@ -132,8 +140,8 @@ local ProxyMetaNewIndex = function(self:EditableSpriteInternal, i:string, v1:any
             self:SetFrame(raw.currentFrame);
         end
     elseif (i=="columnCount" or i=="spriteCount" or i=="edgeOffset" or i=="spriteOffset") then
-        if (self.inputImage) then
-            self:SetFrame(self.currentFrame);
+        if (raw.inputImage) then
+            self:SetFrame(raw.currentFrame);
         end
     end
 end
@@ -146,6 +154,8 @@ _export.new = function(props:EditableSpriteProps)
 
     local raw = {} :: EditableSpriteInternal;
     raw.inputImage = nil;
+    raw.outputImage = props.outputImage;
+    raw.outputPosition = props.outputPosition or Vector2.zero;
     raw.currentFrame = props.currentFrame or 1;
     raw.spriteSize = props.spriteSize or error("Sprite size must be provided");
     raw.spriteOffset = props.spriteOffset or Vector2.zero;
@@ -158,8 +168,10 @@ _export.new = function(props:EditableSpriteProps)
     raw.__raw = raw;
     setmetatable(raw, EditableSprite);
 
-    raw.outputImage = Instance.new("EditableImage");
-    raw.outputImage.Size = raw.spriteSize;
+    if (not raw.outputImage) then
+        raw.outputImage = Instance.new("EditableImage");
+        raw.outputImage.Size = raw.spriteSize;
+    end
     
     local proxy = newproxy(true) :: EditableSprite;
     local meta = getmetatable(proxy);
