@@ -1,4 +1,4 @@
 return {
     WarnEditableImageAPI = true;
-    IsDemoMode = true;
+    IsDemoMode = false;
 }
