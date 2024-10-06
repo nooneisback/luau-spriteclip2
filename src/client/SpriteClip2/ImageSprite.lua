@@ -62,7 +62,7 @@ local ImageSprite = {}; do
         if (raw.isPlaying) then return false; end
         if (playFrom) then self:SetFrame(playFrom); end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
+        raw.__playcon = Scheduler:GetSignal(tostring(raw.frameRate)):Connect(function()
             self:Advance();
         end);
         return true;

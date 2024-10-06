@@ -8,15 +8,31 @@ scrgui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(2);
 
--- SimpleSprite example
+-- sync all sprite.new() functions to call Play at the same time
+local numsync = 0;
+local syncfunc;
+do
+    local bindsync = Instance.new("BindableEvent");
+    function syncfunc()
+        numsync-=1;
+        bindsync:Fire();
+        while (numsync~=0) do
+            bindsync.Event:Wait();
+        end
+    end
+end
+
+-- ImageSprite example
 task.spawn(function()
+    numsync+=1;
+
     local label = Instance.new("ImageLabel");
     label.Size = UDim2.fromOffset(200, 200);
     label.Position = UDim2.fromOffset(0, 0);
     label.BackgroundTransparency = 1;
     label.Parent = scrgui;
 
-    local sprite = SpriteClip.SimpleSprite.new({
+    local sprite = SpriteClip.ImageSprite.new({
         adornee = label;
         spriteSheetId = "rbxassetid://104239803996382";
         spriteSize = Vector2.new(150,150);
@@ -25,11 +41,15 @@ task.spawn(function()
         frameRate = 3;
         isLooped = true;
     });
+
+    syncfunc();
     sprite:Play();
 end);
 
 -- EditableSprite example
 task.spawn(function()
+    numsync+=1;
+
     local label = Instance.new("ImageLabel");
     label.Size = UDim2.fromOffset(200, 200);
     label.Position = UDim2.fromOffset(200, 0);
@@ -45,11 +65,15 @@ task.spawn(function()
         isLooped = true;
     });
     sprite.outputImage.Parent = label;
+    
+    syncfunc();
     sprite:Play();
 end);
 
--- ScriptedSimpleSprite example
+-- ScriptedImageSprite example
 task.spawn(function()
+    numsync+=1;
+
     local label = Instance.new("ImageLabel");
     label.Size = UDim2.fromOffset(200, 200);
     label.Position = UDim2.fromOffset(400, 0);
@@ -59,26 +83,30 @@ task.spawn(function()
     local currentFrame = 1;
     local spriteCount = 12;
     local columnCount = 6;
-    local sprite = SpriteClip.ScriptedSimpleSprite.new({
+    local sprite = SpriteClip.ScriptedImageSprite.new({
         adornee = label;
         spriteSheetId = "rbxassetid://104239803996382";
         spriteSize = Vector2.new(150,150);
         frameRate = 3;
     });
     sprite.onRenderCallback = function(self)
-        local ix = (currentFrame-1) % columnCount + 1;
-        local iy = math.floor((currentFrame-1) / columnCount) + 1;
-        self:SetFrame(Vector2.new(ix, iy));
         currentFrame += 1;
         if (currentFrame > spriteCount) then
             currentFrame = 1;
         end
+        local ix = (currentFrame-1) % columnCount + 1;
+        local iy = math.floor((currentFrame-1) / columnCount) + 1;
+        self:SetFrame(Vector2.new(ix, iy));
     end
+    
+    syncfunc();
     sprite:Play();
 end);
 
 -- ScriptedEditableSprite example
 task.spawn(function()
+    numsync+=1;
+
     local label = Instance.new("ImageLabel");
     label.Size = UDim2.fromOffset(200, 200);
     label.Position = UDim2.fromOffset(600, 0);
@@ -94,20 +122,25 @@ task.spawn(function()
         frameRate = 3;
     });
     sprite.onRenderCallback = function(self)
-        local ix = (currentFrame-1) % columnCount + 1;
-        local iy = math.floor((currentFrame-1) / columnCount) + 1;
-        self:SetFrame(Vector2.new(ix, iy));
         currentFrame += 1;
         if (currentFrame > spriteCount) then
             currentFrame = 1;
         end
+        local ix = (currentFrame-1) % columnCount + 1;
+        local iy = math.floor((currentFrame-1) / columnCount) + 1;
+        self:SetFrame(Vector2.new(ix, iy));
+        
     end
     sprite.outputImage.Parent = label;
+
+    syncfunc();
     sprite:Play();
 end);
 
 -- CompatibilitySprite example
 task.spawn(function()
+    numsync+=1;
+
     local label = Instance.new("ImageLabel");
     label.Size = UDim2.fromOffset(200, 200);
     label.Position = UDim2.fromOffset(800, 0);
@@ -124,5 +157,6 @@ task.spawn(function()
     sprite.Looped = true;
     sprite.Adornee = label;
 
+    syncfunc();
     sprite:Play();
 end);
