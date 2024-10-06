@@ -26,7 +26,7 @@ export type SimpleSprite = {
     Pause:  (self:SimpleSprite)->(boolean);                     -- pauses the animation
     Stop:   (self:SimpleSprite)->(boolean);                     -- pauses the animation and sets the current frame to 1
     SetFrame:(self:SimpleSprite, frame:number)->();             -- manually sets the current frame
-    Advance:(self:SimpleSprite, count:number?)->();             -- manually advances to the next frame, or 1 if last
+    Advance:(self:SimpleSprite)->();             -- manually advances to the next frame, or 1 if last
 };
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
@@ -62,7 +62,7 @@ local SimpleSprite = {}; do
         local raw = self.__raw;
         raw.isPlaying = true;
         raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
-            self:Advance(1);
+            self:Advance();
         end);
         return true;
     end
@@ -121,7 +121,7 @@ local ProxyMetaNewIndex = function(self:SimpleSpriteInternal, i:string, v1:any)
         local adornee = raw.adornee;
         if (adornee) then
             if (self.spriteSheetId~="") then
-                adornee.spriteSheetId = self.spriteSheetId;
+                adornee.Image = self.spriteSheetId;
             end
             adornee.ImageRectSize = raw.spriteSize;
             self:SetFrame(self.currentFrame);

@@ -26,7 +26,7 @@ export type EditableSprite = {
     Pause:  (self:EditableSprite)->(boolean);                                   -- pauses the animation
     Stop:   (self:EditableSprite)->(boolean);                                   -- pauses the animation and sets the current frame to 1
     SetFrame:(self:EditableSprite, frame:number)->();                           -- manually sets the current frame
-    Advance:(self:EditableSprite, count:number?)->();                           -- manually advances to the next frame, or 1 if last
+    Advance:(self:EditableSprite)->();                                          -- manually advances to the next frame, or 1 if last
     LoadInputImage: (self:EditableSprite, newinput:EditableImage|string)->();   -- ASYNC if given a string, replaces the input image with a new one
 };
 
@@ -61,7 +61,7 @@ local EditableSprite = {}; do
         local raw = self.__raw;
         raw.isPlaying = true;
         raw.__playcon = Scheduler:GetSignal(tostring(self.frameRate)):Connect(function()
-            self:Advance(1);
+            self:Advance();
         end);
         return true;
     end

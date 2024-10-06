@@ -23,4 +23,8 @@ _export.ScriptedEditableSprite = ScriptedEditableSprite;
 export type ScriptedEditableSprite = ScriptedEditableSprite.ScriptedEditableSprite;
 export type ScriptedEditableSpriteProps = ScriptedEditableSprite.ScriptedEditableSpriteProps;
 
+local CompatibilitySprite = require(script.CompatibilitySprite);
+_export.CompatibilitySprite = CompatibilitySprite;
+export type CompatibilitySprite = CompatibilitySprite.CompatibilitySprite;
+
 return _export;

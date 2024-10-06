@@ -105,3 +105,24 @@ task.spawn(function()
     sprite.outputImage.Parent = label;
     sprite:Play();
 end);
+
+-- CompatibilitySprite example
+task.spawn(function()
+    local label = Instance.new("ImageLabel");
+    label.Size = UDim2.fromOffset(200, 200);
+    label.Position = UDim2.fromOffset(800, 0);
+    label.BackgroundTransparency = 1;
+    label.Parent = scrgui;
+
+    local sprite = SpriteClip.CompatibilitySprite.new();
+    label.Image = "rbxassetid://104239803996382";
+    sprite.InheritSpriteSheet = true;
+    sprite.SpriteSizePixel = Vector2.new(150,150);
+    sprite.SpriteCount = 12;
+    sprite.SpriteCountX = 6;
+    sprite.FrameRate = 3;
+    sprite.Looped = true;
+    sprite.Adornee = label;
+
+    sprite:Play();
+end);
