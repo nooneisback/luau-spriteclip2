@@ -1,8 +1,5 @@
 local _export = {};
 
--- remove this to shut up the warning
-warn("EditableImage API (EditableSprite and ScriptedEditableSprite) is currently only available in studio");
-
 local Scheduler = require(script.Scheduler);
 _export.Scheduler = Scheduler;
 

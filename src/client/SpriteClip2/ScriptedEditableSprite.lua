@@ -121,7 +121,12 @@ local ProxyMetaNewIndex = function(self:ScriptedEditableSpriteInternal, i:string
     end
 end
 
+local config = require(script.Parent.config);
 _export.new = function(props:ScriptedEditableSpriteProps)
+    if (config.WarnEditableImageAPI) then
+        warn("Sprites relying on the EditableImageAPI (EditableSprite and ScriptedEditableSprite) are currently only available in studio");
+    end
+
     local raw = {} :: ScriptedEditableSpriteInternal;
     raw.inputImage = nil;
     raw.currentFrame = props.currentFrame or Vector2.one;
