@@ -56,6 +56,7 @@ export type ScriptedEditableSpriteInternal = {
 
 local ScriptedEditableSprite = {}; do
     ScriptedEditableSprite.__index = ScriptedEditableSprite;
+    ScriptedEditableSprite.__tostring = function() return "ScriptedEditableSprite"; end
     function ScriptedEditableSprite.Play(self:ScriptedEditableSpriteInternal)
         if (self.isPlaying) then return false; end
         local raw = self.__raw;
@@ -145,6 +146,7 @@ _export.new = function(props:ScriptedEditableSpriteProps)
 
     local proxy = newproxy(true);
     local meta = getmetatable(proxy);
+    meta.__tostring = function() return "ScriptedEditableSprite"; end
     meta.__index = raw;
     meta.__newindex = ProxyMetaNewIndex;
 

@@ -35,13 +35,14 @@ export type CompatibilitySprite = {
 local _export = {} :: {new:()->(CompatibilitySprite)};
 
 -- Internal type with hidden values
-local SimpleSprite = require(script.Parent.SimpleSprite);
+local ImageSprite = require(script.Parent.ImageSprite);
 export type CompatibilitySpriteInternal = {
     __raw:CompatibilitySpriteInternal;
-    __real:SimpleSprite.SimpleSpriteInternal;
+    __real:ImageSprite.ImageSpriteInternal;
 } & CompatibilitySprite;
 
 local CompatibilitySprite = {}; do
+    CompatibilitySprite.__tostring = function() return "CompatibilitySprite"; end
     CompatibilitySprite.__index = CompatibilitySprite;
     function CompatibilitySprite.Play(self:CompatibilitySpriteInternal)
         local real = self.__real;
@@ -123,7 +124,7 @@ local ProxyMetaNewIndex = function(self:CompatibilitySpriteInternal, i0:string, 
 end
 
 _export.new = function()
-    local realsprite = SimpleSprite.new({
+    local realsprite = ImageSprite.new({
         adornee = nil;
         spriteSheetId = nil;
         currentFrame = 1;
@@ -144,6 +145,7 @@ _export.new = function()
     
     local proxy = newproxy(true);
     local meta = getmetatable(proxy);
+    meta.__tostring = function() return "CompatibilitySprite"; end
     meta.__newindex = ProxyMetaNewIndex;
     meta.__index = function(self:CompatibilitySpriteInternal, i0:string)
         local real = raw.__real;

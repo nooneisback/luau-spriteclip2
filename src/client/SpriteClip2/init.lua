@@ -3,20 +3,20 @@ local _export = {};
 local Scheduler = require(script.Scheduler);
 _export.Scheduler = Scheduler;
 
-local SimpleSprite = require(script.SimpleSprite);
-_export.SimpleSprite = SimpleSprite;
-export type SimpleSprite = SimpleSprite.SimpleSprite;
-export type SimpleSpriteProps = SimpleSprite.SimpleSpriteProps;
+local ImageSprite = require(script.ImageSprite);
+_export.ImageSprite = ImageSprite;
+export type ImageSprite = ImageSprite.ImageSprite;
+export type ImageSpriteProps = ImageSprite.ImageSpriteProps;
 
 local EditableSprite = require(script.EditableSprite);
 _export.EditableSprite = EditableSprite;
 export type EditableSprite = EditableSprite.EditableSprite;
 export type EditableSpriteProps = EditableSprite.EditableSpriteProps;
 
-local ScriptedSimpleSprite = require(script.ScriptedSimpleSprite);
-_export.ScriptedSimpleSprite = ScriptedSimpleSprite;
-export type ScriptedSimpleSprite = ScriptedSimpleSprite.ScriptedSimpleSprite;
-export type ScriptedSimpleSpriteProps = ScriptedSimpleSprite.ScriptedSimpleSpriteProps;
+local ScriptedImageSprite = require(script.ScriptedImageSprite);
+_export.ScriptedImageSprite = ScriptedImageSprite;
+export type ScriptedImageSprite = ScriptedImageSprite.ScriptedImageSprite;
+export type ScriptedImageSpriteProps = ScriptedImageSprite.ScriptedImageSpriteProps;
 
 local ScriptedEditableSprite = require(script.ScriptedEditableSprite);
 _export.ScriptedEditableSprite = ScriptedEditableSprite;
