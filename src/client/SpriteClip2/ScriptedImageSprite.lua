@@ -51,7 +51,7 @@ local ScriptedImageSprite = {}; do
         local raw = self.__raw;
         if (raw.isPlaying) then return false; end
         raw.isPlaying = true;
-        raw.__playcon = Scheduler:GetSignal(raw.frameRate):Connect(function()
+        raw.__playcon = Scheduler:GetOnRenderSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
         return true;

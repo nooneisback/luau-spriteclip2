@@ -160,3 +160,16 @@ task.spawn(function()
     syncfunc();
     sprite:Play();
 end);
+
+local preRenderSignal = SpriteClip.Scheduler:GetPreRenderSignal(3);
+local onRenderSignal = SpriteClip.Scheduler:GetOnRenderSignal(3);
+local postRenderSignal = SpriteClip.Scheduler:GetPostRenderSignal(3);
+preRenderSignal:Connect(function()
+    print("pre");
+end);
+onRenderSignal:Connect(function()
+    print("on");
+end);
+postRenderSignal:Connect(function()
+    print("post");
+end);
