@@ -1,5 +1,7 @@
 --@native
 
+local assetService = game:GetService("AssetService")
+
 -- The main sprite type
 export type EditableSprite = {
     -- properties
@@ -102,7 +104,7 @@ local EditableSprite = {}; do
         local offsprt = raw.spriteOffset;
         local posx = offedge.X + ix*(size.X + offsprt.X);
         local posy = offedge.Y + iy*(size.Y + offsprt.Y);
-        self.outputImage:WritePixels(raw.outputPosition, size, input:ReadPixels(Vector2.new(posx,posy), size));
+        self.outputImage:WritePixelsBuffer(raw.outputPosition, size, input:ReadPixelsBuffer(Vector2.new(posx,posy), size));
     end
 
     function EditableSprite.LoadInputImage(self:EditableSpriteInternal, newinput:EditableImage|string)
@@ -139,11 +141,8 @@ local ProxyMetaNewIndex = function(self:EditableSpriteInternal, i:string, v1:any
     end
 end
 
-local config = require(script.Parent.config);
+--local config = require(script.Parent.config);
 _export.new = function(props:EditableSpriteProps)
-    if (config.WarnEditableImageAPI) then
-        warn("Sprites relying on the EditableImageAPI (EditableSprite and ScriptedEditableSprite) are currently only available in studio");
-    end
 
     local raw = {} :: EditableSpriteInternal;
     raw.inputImage = nil;
@@ -162,8 +161,9 @@ _export.new = function(props:EditableSpriteProps)
     setmetatable(raw, EditableSprite);
 
     if (not raw.outputImage) then
-        raw.outputImage = Instance.new("EditableImage");
-        raw.outputImage.Size = raw.spriteSize;
+        raw.outputImage = assetService:CreateEditableImage({
+            Size = raw.spriteSize
+        })
     end
     
     local proxy = newproxy(true) :: EditableSprite;

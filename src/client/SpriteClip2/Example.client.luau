@@ -64,7 +64,7 @@ task.spawn(function()
         frameRate = 3;
         isLooped = true;
     });
-    sprite.outputImage.Parent = label;
+    label.ImageContent = Content.fromObject(sprite.outputImage);
     
     syncfunc();
     sprite:Play();
@@ -131,7 +131,7 @@ task.spawn(function()
         self:SetFrame(Vector2.new(ix, iy));
         
     end
-    sprite.outputImage.Parent = label;
+    label.ImageContent = Content.fromObject(sprite.outputImage);
 
     syncfunc();
     sprite:Play();
