@@ -1,4 +1,4 @@
 return {
     WarnEditableImageAPI = true;
-    IsDemoMode = true; -- if true, runs the Example script
+    IsDemoMode = false; -- if true, runs the Example script
 }
