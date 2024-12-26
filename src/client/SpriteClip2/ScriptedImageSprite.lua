@@ -96,13 +96,21 @@ local ProxyMetaNewIndex = function(self:ScriptedImageSpriteInternal, i:string, v
         if (raw.isPlaying) then
             self:Pause(); self:Play();
         end
-    elseif (i=="spriteSize" or i=="adornee") then
+    elseif (i=="spriteSize") then
         local adornee = raw.adornee;
         if (adornee) then
             if (raw.spriteSheetId~="") then
                 adornee.Image = raw.spriteSheetId;
             end
             adornee.ImageRectSize = raw.spriteSize;
+            self:SetFrame(raw.currentFrame);
+        end
+    elseif (i=="adornee") then
+        if (v1) then
+            if (raw.spriteSheetId~="") then
+                v1.Image = raw.spriteSheetId;
+            end
+            v1.ImageRectSize = raw.spriteSize;
             self:SetFrame(raw.currentFrame);
         end
     elseif (i=="edgeOffset" or i=="spriteOffset") then

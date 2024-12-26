@@ -121,7 +121,7 @@ if (script:GetAttribute("paracheck")==nil) then
         for gname, onbind in pairs(GroupOnBinds) do
             local glast = GroupLastTimes[gname];
             local gdelta = GroupDeltaTimes[gname];
-            if ((currtime-glast)<gdelta) then return; end
+            if ((currtime-glast)<gdelta) then continue; end
             GroupLastTimes[gname] = currtime;
             table.insert(tocall, gname);
             local bind = GroupPreBinds[gname];

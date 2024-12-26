@@ -45,6 +45,7 @@ export type ImageSpriteInternal = {
     __raw:ImageSpriteInternal;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
+    __destrcon:RBXScriptConnection?;
 } & ImageSprite;
 
 local ImageSprite = {}; do
@@ -118,13 +119,27 @@ local ProxyMetaNewIndex = function(self:ImageSpriteInternal, i:string, v1:any)
         if (raw.isPlaying) then
             self:Pause(); self:Play();
         end
-    elseif (i=="spriteSize" or i=="adornee") then
+    elseif (i=="spriteSize") then
         local adornee = raw.adornee;
         if (adornee) then
             if (raw.spriteSheetId~="") then
                 adornee.Image = raw.spriteSheetId;
             end
             adornee.ImageRectSize = raw.spriteSize;
+            self:SetFrame(raw.currentFrame);
+        end
+    elseif (i=="adornee") then
+        if (v0) then
+            raw.__destrcon:Disconnect();
+        end
+        if (v1) then
+            raw.__destrcon = v1.Destroying:Connect(function()
+                self:Stop();
+            end);
+            if (raw.spriteSheetId~="") then
+                v1.Image = raw.spriteSheetId;
+            end
+            v1.ImageRectSize = raw.spriteSize;
             self:SetFrame(raw.currentFrame);
         end
     elseif (i=="columnCount" or i=="spriteCount" or i=="edgeOffset" or i=="spriteOffset") then
@@ -165,6 +180,9 @@ _export.new = function(props:ImageSpriteProps)
         raw.adornee.Image = raw.spriteSheetId;
         raw.adornee.ImageRectSize = raw.spriteSize;
         proxy:SetFrame(raw.currentFrame);
+        raw.__destrcon = raw.adornee.Destroying:Connect(function()
+            proxy:Stop();
+        end);
     end
     return proxy::ImageSprite;
 end
