@@ -1,4 +1,5 @@
 --@native
+local ImageSprite = require(script.Parent.ImageSprite);
 
 -- The main sprite type
 export type CompatibilitySprite = {
@@ -23,13 +24,13 @@ export type CompatibilitySprite = {
 		Advance:(self:CompatibilitySprite, advanceby:number)->();
 		Destroy:(self:CompatibilitySprite)->();
         Clone:(self:CompatibilitySprite)->(CompatibilitySprite);
+        GetRealSprite:(self:CompatibilitySprite)->(ImageSprite.ImageSprite);
 }
 
 -- Don't touch anything below unless you know what you're doing
 local _export = {} :: {new:()->(CompatibilitySprite)};
 
 -- Internal type with hidden values
-local ImageSprite = require(script.Parent.ImageSprite);
 export type CompatibilitySpriteInternal = {
     __raw:CompatibilitySpriteInternal;
     __real:ImageSprite.ImageSpriteInternal;
@@ -75,6 +76,9 @@ local CompatibilitySprite = {}; do
         sprite1.FrameRate = self.FrameRate;
         sprite1.Looped = self.Looped;
         return sprite1;
+    end
+    function CompatibilitySprite.GetRealSprite(self:CompatibilitySpriteInternal)
+        return self.__real;
     end
 end
 
