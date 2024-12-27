@@ -24,7 +24,18 @@ export type EditableSprite = {
     SetFrame:(self:EditableSprite, frame:number)->();                           -- manually sets the current frame
     Advance:(self:EditableSprite)->();                                          -- manually advances to the next frame, or 1 if last
     LoadInputImage: (self:EditableSprite, newInput:EditableImage|string)->();   -- ASYNC if given a string, replaces the input image with a new one
+    GetSignal:(self:EditableSprite, signalType:SignalType)->(RBXScriptSignal);
 };
+
+-- format: "signalName" | -- (callback arguments) - description
+type SignalType =
+    "FrameLast" |   -- () - fires when the sprite hits its last frame
+    "Looped" |      -- () - fires when a looped sprite goes from its last to first frame
+    "FrameChanged" |-- () - fires on frame change
+    "PlayCalled" |  -- () - fires when :Play() is called if the sprite isn't playing
+    "PauseCalled" | -- () - fires when :Pause() is called if the sprite is playing
+    "StopCalled" |  -- () - fires when :Stop() is called if the sprite is playing
+    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: inputImage, outputImage, outputPosition, spriteSize, spriteOffset, edgeOffset, spriteCount, columnCount, frameRate, isLooped
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
 export type EditableSpriteProps = {
@@ -49,6 +60,7 @@ local AssetService = game:GetService("AssetService");
 export type EditableSpriteInternal = {
     __raw:EditableSprite;
     __playcon:RBXScriptConnection?;
+    __signalcache:{[string]:BindableEvent};
 } & EditableSprite;
 
 local EditableSprite = {}; do
@@ -62,18 +74,22 @@ local EditableSprite = {}; do
         raw.__playcon = Scheduler:GetOnRenderSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
+        local _ev = self.__signalcache["PlayCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
-    function EditableSprite.Pause(self:EditableSpriteInternal)
+    function EditableSprite.Pause(self:EditableSpriteInternal, stopcall:boolean?)
         local raw = self.__raw;
         if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
+        local _ev = not stopcall and self.__signalcache["PauseCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function EditableSprite.Stop(self:EditableSpriteInternal)
         self:SetFrame(1);
-        return self:Pause();
+        local didPause = (self::any).Pause(self, true); -- don't question it, I just don't want to deal with typechecking
+        local _ev = didPause and self.__signalcache["StopCalled"]; _ = _ev and _ev:Fire();
+        return didPause;
     end
     function EditableSprite.Advance(self:EditableSpriteInternal)
         local raw = self.__raw;
@@ -86,6 +102,7 @@ local EditableSprite = {}; do
             nextframe = 1;
         end
         self:SetFrame(nextframe);
+        local _ev = nextframe==1 and raw.__signalcache["Looped"]; _ = _ev and _ev:Fire();
     end
 
     function EditableSprite.SetFrame(self:EditableSpriteInternal, newframe:number)
@@ -93,6 +110,7 @@ local EditableSprite = {}; do
         if (newframe<1 or newframe>raw.spriteCount) then
             error("Invalid frame number "..newframe);
         end
+        local oldFrame = raw.currentFrame;
         raw.currentFrame = newframe;
         local input = raw.inputImage :: EditableImage;
         if (not input) then return; end
@@ -105,12 +123,34 @@ local EditableSprite = {}; do
         local posx = offedge.X + ix*(size.X + offsprt.X);
         local posy = offedge.Y + iy*(size.Y + offsprt.Y);
         self.outputImage:WritePixelsBuffer(raw.outputPosition, size, input:ReadPixelsBuffer(Vector2.new(posx,posy), size));
+        local _ev;
+        _ev = oldFrame ~= newframe and raw.__signalcache["FrameChanged"]; _ = _ev and _ev:Fire();
+        _ev = newframe == raw.spriteCount and raw.__signalcache["FrameLast"]; _ = _ev and _ev:Fire();
     end
 
     function EditableSprite.LoadInputImage(self:EditableSpriteInternal, newinput:EditableImage|string)
         local raw = self.__raw;
         raw.inputImage = if type(newinput)~="string" then newinput::EditableImage else AssetService:CreateEditableImageAsync(newinput::string);
         self:SetFrame(raw.currentFrame);
+    end
+
+    -- create a signalType:bool hash to quickly check if the requested signalType is valid
+    local validSignalTypes = {"FrameLast","Looped","FrameChanged","PlayCalled","PauseCalled","StopCalled","StaticChanged"};
+    for _,i in pairs(validSignalTypes) do
+        validSignalTypes[i]=true;
+    end
+
+    function EditableSprite.GetSignal(self, signalType)
+        local evcache = (self::EditableSpriteInternal).__signalcache;
+        local evbind = evcache[signalType];
+        if (not evbind) then
+            if (not validSignalTypes[signalType]) then
+                error("Invalid signal type "..signalType);
+            end
+            evbind = Instance.new("BindableEvent");
+            evcache[signalType] = evbind;
+        end
+        return evbind.Event;
     end
 end
 
@@ -139,6 +179,7 @@ local ProxyMetaNewIndex = function(self:EditableSpriteInternal, i:string, v1:any
             self:SetFrame(raw.currentFrame);
         end
     end
+    local _ev = raw.__signalcache["StaticChanged"]; _ = _ev and _ev:Fire(i);
 end
 
 --local config = require(script.Parent.config);
@@ -157,6 +198,7 @@ _export.new = function(props:EditableSpriteProps)
     raw.frameRate = props.frameRate or 30;
     raw.isLooped = if props.isLooped ~= nil then props.isLooped else true;
     raw.isPlaying = false;
+    raw.__signalcache = {};
     raw.__raw = raw;
     setmetatable(raw, EditableSprite);
 

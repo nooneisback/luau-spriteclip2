@@ -19,8 +19,19 @@ export type ImageSprite = {
     Pause:  (self:ImageSprite)->(boolean);                     -- pauses the animation
     Stop:   (self:ImageSprite)->(boolean);                     -- pauses the animation and sets the current frame to 1
     SetFrame:(self:ImageSprite, frame:number)->();             -- manually sets the current frame
-    Advance:(self:ImageSprite)->();             -- manually advances to the next frame, or 1 if last
+    Advance:(self:ImageSprite)->();                            -- manually advances to the next frame, or 1 if last
+    GetSignal:(self:ImageSprite, signalType:SignalType)->(RBXScriptSignal);
 };
+
+-- format: "signalName" | -- (callback arguments) - description
+type SignalType =
+    "FrameLast" |   -- () - fires when the sprite hits its last frame
+    "Looped" |      -- () - fires when a looped sprite goes from its last to first frame
+    "FrameChanged" |-- () - fires on frame change
+    "PlayCalled" |  -- () - fires when :Play() is called if the sprite isn't playing
+    "PauseCalled" | -- () - fires when :Pause() is called if the sprite is playing
+    "StopCalled" |  -- () - fires when :Stop() is called if the sprite is playing
+    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: adornee, spriteSheetId, spriteSize, spriteOffset, edgeOffset, spriteCount, columnCount, frameRate, isLooped
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
 export type ImageSpriteProps = {
@@ -43,12 +54,12 @@ local _export = {};
 -- Internal type with hidden values
 export type ImageSpriteInternal = {
     __raw:ImageSpriteInternal;
-    __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
     __destrcon:RBXScriptConnection?;
+    __signalcache:{[string]:BindableEvent};
 } & ImageSprite;
 
-local ImageSprite = {}; do
+local ImageSprite = {} :: ImageSpriteInternal; do
     ImageSprite.__tostring = function() return "ImageSprite"; end
     ImageSprite.__index = ImageSprite;
     function ImageSprite.Play(self:ImageSpriteInternal, playFrom:number?)
@@ -59,19 +70,23 @@ local ImageSprite = {}; do
         raw.__playcon = Scheduler:GetOnRenderSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
+        local _ev = self.__signalcache["PlayCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
-    function ImageSprite.Pause(self:ImageSpriteInternal)
+    function ImageSprite.Pause(self:ImageSpriteInternal, stopcall:boolean?)
         local raw = self.__raw;
         if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
         raw.__playcon = nil;
+        local _ev = not stopcall and self.__signalcache["PauseCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function ImageSprite.Stop(self:ImageSpriteInternal)
         self:SetFrame(1);
-        return self:Pause();
+        local didPause = (self::any).Pause(self, true); -- don't question it, I just don't want to deal with typechecking
+        local _ev = didPause and self.__signalcache["StopCalled"]; _ = _ev and _ev:Fire();
+        return didPause;
     end
     function ImageSprite.Advance(self:ImageSpriteInternal)
         local raw = self.__raw;
@@ -84,6 +99,7 @@ local ImageSprite = {}; do
             nextframe = 1;
         end
         self:SetFrame(nextframe);
+        local _ev = nextframe==1 and raw.__signalcache["Looped"]; _ = _ev and _ev:Fire();
     end
 
     function ImageSprite.SetFrame(self:ImageSpriteInternal, newframe:number)
@@ -91,6 +107,7 @@ local ImageSprite = {}; do
         if (newframe<1 or newframe>raw.spriteCount) then
             error("Invalid frame number "..newframe);
         end
+        local oldFrame = raw.currentFrame;
         raw.currentFrame = newframe;
         local adornee = raw.adornee :: ImageLabel;
         if (not adornee) then return; end
@@ -103,6 +120,28 @@ local ImageSprite = {}; do
         local posx = offedge.X + ix*(size.X + offsprt.X);
         local posy = offedge.Y + iy*(size.Y + offsprt.Y);
         adornee.ImageRectOffset = Vector2.new(posx, posy);
+        local _ev;
+        _ev = oldFrame ~= newframe and raw.__signalcache["FrameChanged"]; _ = _ev and _ev:Fire();
+        _ev = newframe == raw.spriteCount and raw.__signalcache["FrameLast"]; _ = _ev and _ev:Fire();
+    end
+
+    -- create a signalType:bool hash to quickly check if the requested signalType is valid
+    local validSignalTypes = {"FrameLast","Looped","FrameChanged","PlayCalled","PauseCalled","StopCalled","StaticChanged"};
+    for _,i in pairs(validSignalTypes) do
+        validSignalTypes[i]=true;
+    end
+
+    function ImageSprite.GetSignal(self, signalType)
+        local evcache = (self::ImageSpriteInternal).__signalcache;
+        local evbind = evcache[signalType];
+        if (not evbind) then
+            if (not validSignalTypes[signalType]) then
+                error("Invalid signal type "..signalType);
+            end
+            evbind = Instance.new("BindableEvent");
+            evcache[signalType] = evbind;
+        end
+        return evbind.Event;
     end
 end
 
@@ -152,6 +191,7 @@ local ProxyMetaNewIndex = function(self:ImageSpriteInternal, i:string, v1:any)
             adornee.Image = v1;
         end
     end
+    local _ev = raw.__signalcache["StaticChanged"]; _ = _ev and _ev:Fire(i);
 end
 
 _export.new = function(props:ImageSpriteProps)
@@ -167,6 +207,7 @@ _export.new = function(props:ImageSpriteProps)
     raw.frameRate = props.frameRate or 30;
     raw.isLooped = if props.isLooped ~= nil then props.isLooped else true;
     raw.isPlaying = false;
+    raw.__signalcache = {};
     raw.__raw = raw;
     setmetatable(raw, ImageSprite);
     
