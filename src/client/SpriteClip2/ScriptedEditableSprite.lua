@@ -20,9 +20,17 @@ export type ScriptedEditableSprite = {
     SetFrame:(self:ScriptedEditableSprite, frame:Vector2)->(); --MODIFIED -- manually sets the current frame
     Advance:(self:ScriptedEditableSprite)->();   --MODIFIED               -- manually advances to the next frame, or 1 if last
     LoadInputImage: (self:ScriptedEditableSprite, newInput:EditableImage|string)->();   -- async if given a string, replaces the input image with a new one
+    GetSignal:(self:ScriptedEditableSprite, signalType:SignalType)->(RBXScriptSignal);
     -- callbacks
     onRenderCallback: (self:ScriptedEditableSprite)->()?;   --ADDED       
 };
+
+-- format: "signalName" | -- (callback arguments) - description
+type SignalType =
+    "FrameChanged" |-- () - fires on frame change
+    "PlayCalled" |  -- () - fires when :Play() is called if the sprite isn't playing
+    "PauseCalled" | -- () - fires when :Pause() is called if the sprite is playing
+    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: inputImage, outputImage, outputPosition, spriteSize, spriteOffset, edgeOffset, columnCount, frameRate
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
 export type ScriptedEditableSpriteProps = {
@@ -48,6 +56,7 @@ export type ScriptedEditableSpriteInternal = {
     __raw:ScriptedEditableSprite;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
+    __signalcache:{[string]:BindableEvent};
 } & ScriptedEditableSprite;
 
 local ScriptedEditableSprite = {}; do
@@ -60,6 +69,7 @@ local ScriptedEditableSprite = {}; do
         raw.__playcon = Scheduler:GetOnRenderSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
+        local _ev = self.__signalcache["PlayCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function ScriptedEditableSprite.Pause(self:ScriptedEditableSpriteInternal)
@@ -67,6 +77,7 @@ local ScriptedEditableSprite = {}; do
         if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
+        local _ev = self.__signalcache["PauseCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function ScriptedEditableSprite.Advance(self:ScriptedEditableSpriteInternal)
@@ -76,6 +87,7 @@ local ScriptedEditableSprite = {}; do
 
     function ScriptedEditableSprite.SetFrame(self:ScriptedEditableSpriteInternal, newframe:Vector2)
         local raw = self.__raw;
+        local oldFrame = raw.currentFrame;
         raw.currentFrame = newframe;
         local input = self.inputImage :: EditableImage;
         if (not input) then return; end
@@ -85,12 +97,32 @@ local ScriptedEditableSprite = {}; do
         local posx = edgeoff.X + (newframe.X-1)*(size.X + sprtoff.X);
         local posy = edgeoff.Y + (newframe.Y-1)*(size.Y + sprtoff.Y);
         self.outputImage:WritePixelsBuffer(raw.outputPosition, size, input:ReadPixelsBuffer(Vector2.new(posx,posy), size));
+        local _ev = oldFrame ~= newframe and raw.__signalcache["FrameChanged"]; _ = _ev and _ev:Fire();
     end
 
     function ScriptedEditableSprite.LoadInputImage(self:ScriptedEditableSpriteInternal, newinput:EditableImage|string)
         local raw = self.__raw;
         raw.inputImage = if type(newinput)~="string" then newinput::EditableImage else AssetService:CreateEditableImageAsync(newinput::string);
         self:SetFrame(raw.currentFrame);
+    end
+
+    -- create a signalType:bool hash to quickly check if the requested signalType is valid
+    local validSignalTypes = {"FrameChanged","PlayCalled","PauseCalled","StaticChanged"};
+    for _,i in pairs(validSignalTypes) do
+        validSignalTypes[i]=true;
+    end
+
+    function ScriptedEditableSprite.GetSignal(self:ScriptedEditableSpriteInternal, signalType)
+        local evcache = self.__signalcache;
+        local evbind = evcache[signalType];
+        if (not evbind) then
+            if (not validSignalTypes[signalType]) then
+                error("Invalid signal type "..signalType);
+            end
+            evbind = Instance.new("BindableEvent");
+            evcache[signalType] = evbind;
+        end
+        return evbind.Event;
     end
 end
 
@@ -119,6 +151,7 @@ local ProxyMetaNewIndex = function(self:ScriptedEditableSpriteInternal, i:string
             self:SetFrame(raw.currentFrame);
         end
     end
+    local _ev = raw.__signalcache["StaticChanged"]; _ = _ev and _ev:Fire(i);
 end
 
 --local config = require(script.Parent.config);
@@ -136,6 +169,7 @@ _export.new = function(props:ScriptedEditableSpriteProps)
     raw.isLooped = if props.isLooped ~= nil then props.isLooped else true;
     raw.isPlaying = false;
     raw.onRenderCallback = props.onRenderCallback;
+    raw.__signalcache = {};
     raw.__raw = raw;
     setmetatable(raw, ScriptedEditableSprite);
     

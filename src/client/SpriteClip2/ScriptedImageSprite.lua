@@ -16,9 +16,18 @@ export type ScriptedImageSprite = {
     Pause:  (self:ScriptedImageSprite)->(boolean);                     -- pauses the animation
     SetFrame:(self:ScriptedImageSprite, frame:Vector2)->(); --MODIFIED -- manually sets the current frame
     Advance:(self:ScriptedImageSprite)->();   --MODIFIED               -- manually advances to the next frame, or 1 if last
+    GetSignal:(self:ScriptedImageSprite, signalType:SignalType)->(RBXScriptSignal);
     -- callbacks
     onRenderCallback: (self:ScriptedImageSprite)->()?;   --ADDED       
 };
+
+-- format: "signalName" | -- (callback arguments) - description
+type SignalType =
+    "FrameChanged" |-- () - fires on frame change
+    "PlayCalled" |  -- () - fires when :Play() is called if the sprite isn't playing
+    "PauseCalled" | -- () - fires when :Pause() is called if the sprite is playing
+    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: inputImage, outputImage, outputPosition, spriteSize, spriteOffset, edgeOffset, columnCount, frameRate
+
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
 export type ScriptedImageSpriteProps = {
@@ -42,6 +51,7 @@ export type ScriptedImageSpriteInternal = {
     __raw:ScriptedImageSpriteInternal;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
+    __signalcache:{[string]:BindableEvent};
 } & ScriptedImageSprite;
 
 local ScriptedImageSprite = {}; do
@@ -54,6 +64,7 @@ local ScriptedImageSprite = {}; do
         raw.__playcon = Scheduler:GetOnRenderSignal(raw.frameRate):Connect(function()
             self:Advance();
         end);
+        local _ev = self.__signalcache["PlayCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function ScriptedImageSprite.Pause(self:ScriptedImageSpriteInternal)
@@ -62,6 +73,7 @@ local ScriptedImageSprite = {}; do
         raw.isPlaying = false;
         (raw.__playcon::RBXScriptConnection):Disconnect();
         raw.__playcon = nil;
+        local _ev = self.__signalcache["PauseCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
     function ScriptedImageSprite.Advance(self:ScriptedImageSpriteInternal)
@@ -71,6 +83,7 @@ local ScriptedImageSprite = {}; do
 
     function ScriptedImageSprite.SetFrame(self:ScriptedImageSpriteInternal, newframe:Vector2)
         local raw = self.__raw;
+        local oldFrame = raw.currentFrame;
         raw.currentFrame = newframe;
         local adornee = raw.adornee :: ImageLabel;
         if (not adornee) then return; end
@@ -80,6 +93,26 @@ local ScriptedImageSprite = {}; do
         local posx = edgeoff.X + (newframe.X-1)*(size.X + sprtoff.X);
         local posy = edgeoff.Y + (newframe.Y-1)*(size.Y + sprtoff.Y);
         adornee.ImageRectOffset = Vector2.new(posx, posy);
+        local _ev = oldFrame ~= newframe and raw.__signalcache["FrameChanged"]; _ = _ev and _ev:Fire();
+    end
+
+    -- create a signalType:bool hash to quickly check if the requested signalType is valid
+    local validSignalTypes = {"FrameChanged","PlayCalled","PauseCalled","StaticChanged"};
+    for _,i in pairs(validSignalTypes) do
+        validSignalTypes[i]=true;
+    end
+
+    function ScriptedImageSprite.GetSignal(self:ScriptedImageSpriteInternal, signalType)
+        local evcache = self.__signalcache;
+        local evbind = evcache[signalType];
+        if (not evbind) then
+            if (not validSignalTypes[signalType]) then
+                error("Invalid signal type "..signalType);
+            end
+            evbind = Instance.new("BindableEvent");
+            evcache[signalType] = evbind;
+        end
+        return evbind.Event;
     end
 end
 
@@ -123,6 +156,7 @@ local ProxyMetaNewIndex = function(self:ScriptedImageSpriteInternal, i:string, v
             adornee.Image = v1;
         end
     end
+    local _ev = raw.__signalcache["StaticChanged"]; _ = _ev and _ev:Fire(i);
 end
 
 _export.new = function(props:ScriptedImageSpriteProps)
@@ -137,6 +171,7 @@ _export.new = function(props:ScriptedImageSpriteProps)
     raw.isLooped = if props.isLooped ~= nil then props.isLooped else true;
     raw.isPlaying = false;
     raw.onRenderCallback = props.onRenderCallback;
+    raw.__signalcache = {};
     raw.__raw = raw;
     setmetatable(raw, ScriptedImageSprite);
     

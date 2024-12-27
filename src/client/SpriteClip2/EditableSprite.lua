@@ -140,8 +140,8 @@ local EditableSprite = {}; do
         validSignalTypes[i]=true;
     end
 
-    function EditableSprite.GetSignal(self, signalType)
-        local evcache = (self::EditableSpriteInternal).__signalcache;
+    function EditableSprite.GetSignal(self:EditableSpriteInternal, signalType)
+        local evcache = self.__signalcache;
         local evbind = evcache[signalType];
         if (not evbind) then
             if (not validSignalTypes[signalType]) then

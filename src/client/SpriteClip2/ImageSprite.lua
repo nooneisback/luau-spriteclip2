@@ -131,8 +131,8 @@ local ImageSprite = {} :: ImageSpriteInternal; do
         validSignalTypes[i]=true;
     end
 
-    function ImageSprite.GetSignal(self, signalType)
-        local evcache = (self::ImageSpriteInternal).__signalcache;
+    function ImageSprite.GetSignal(self:ImageSpriteInternal, signalType)
+        local evcache = self.__signalcache;
         local evbind = evcache[signalType];
         if (not evbind) then
             if (not validSignalTypes[signalType]) then
