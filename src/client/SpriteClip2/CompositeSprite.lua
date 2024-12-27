@@ -1,28 +1,34 @@
 --@native
 
+--[[
+    A sprite class that combines multiple input editable images into one sprite for high resolution animations.
+    Untested and not fully documented. Use at your own risk.
+    Main difference: Instead of Vector2 for currentFrame, Vector3 is used where Z represents an index in inputImages
+]]
+
 local assetService = game:GetService("AssetService")
 
 -- The main sprite type
-export type ScriptedEditableSprite = {
+export type CompositeSprite = {
     -- properties -- removed: spriteCount, columnCount
-    inputImage:         EditableImage?; -- READONLY [nil] editable image to read the pixel data from, change using LoadInputImage
-    outputImage:        EditableImage;  -- [nil] editable image to write the pixel data to, can be replaced with a different editable image
-    outputPosition:     Vector2;        -- [0,0] where to render on the output image, useful for storing multiple sprites as an atlas
-    currentFrame:       Vector2;   --MODIFIED       -- READONLY [1,1] position of the frame that is currently visible (starts from 1,1)
+    inputImages:        {EditableImage};            --  a list of editable images to read the data from
+    outputImage:        EditableImage;              -- [nil] editable image to write the pixel data to, can be replaced with a different editable image
+    outputPosition:     Vector2;                    -- [0,0] where to render on the output image, useful for storing multiple sprites as an atlas
+    currentFrame:       Vector3;                    -- READONLY [1,1,1] position of the frame that is currently visible (starts from 1,1), Z represents the index of the input image
     spriteSize:         Vector2;                    -- [0,0] the size of the individual sprites represented by the sprite sheet in pixels
     spriteOffset:       Vector2;                    -- [0,0] offset between individual sprites in pixels
     edgeOffset:         Vector2;                    -- [0,0] offset from the image's top-left edge in pixels
     frameRate:          number;                     -- [30] max frame rate the sprite can achieve when playing (can be any number, but will be clamped by RenderStepped frame rate)
     isPlaying:          boolean;                    -- READONLY [false] whether the sprite is playing or not
     -- methods -- removed: Stop, 
-    Play:   (self:ScriptedEditableSprite)->(boolean); --MODIFIED          -- plays the animation
-    Pause:  (self:ScriptedEditableSprite)->(boolean);                     -- pauses the animation
-    SetFrame:(self:ScriptedEditableSprite, frame:Vector2)->(); --MODIFIED -- manually sets the current frame
-    Advance:(self:ScriptedEditableSprite)->();   --MODIFIED               -- manually advances to the next frame, or 1 if last
-    LoadInputImage: (self:ScriptedEditableSprite, newInput:EditableImage|string)->();   -- async if given a string, replaces the input image with a new one
-    GetSignal:(self:ScriptedEditableSprite, signalType:SignalType)->(RBXScriptSignal);
+    Play:   (self:CompositeSprite)->(boolean); --MODIFIED          -- plays the animation
+    Pause:  (self:CompositeSprite)->(boolean);                     -- pauses the animation
+    SetFrame:(self:CompositeSprite, frame:Vector2)->(); --MODIFIED -- manually sets the current frame
+    Advance:(self:CompositeSprite)->();   --MODIFIED               -- manually advances to the next frame, or 1 if last
+    LoadInputImage: (self:CompositeSprite, newInput:EditableImage|string, index:number?)->();   -- async if given a string, replaces the input image at the given index, or appends to list if nil
+    GetSignal:(self:CompositeSprite, signalType:SignalType)->(RBXScriptSignal);
     -- callbacks
-    onRenderCallback: (self:ScriptedEditableSprite)->()?;   --ADDED       
+    onRenderCallback: (self:CompositeSprite)->()?;   --ADDED       
 };
 
 -- format: "signalName" | -- (callback arguments) - description
@@ -33,8 +39,8 @@ type SignalType =
     "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: inputImage, outputImage, outputPosition, spriteSize, spriteOffset, edgeOffset, frameRate
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
-export type ScriptedEditableSpriteProps = {
-    inputImage:         EditableImage|string?;
+export type CompositeProps = {
+    inputImages:        {EditableImage|string}?;
     outputImage:        EditableImage?;
     outputPosition:     Vector2?;
     currentFrame:       number?;
@@ -42,7 +48,7 @@ export type ScriptedEditableSpriteProps = {
     spriteOffset:       Vector2?;
     edgeOffset:         Vector2?;
     frameRate:          number?;
-    onRenderCallback:   (self:ScriptedEditableSprite)->()?;
+    onRenderCallback:   (self:CompositeSprite)->()?;
 }
 
 -- Don't touch anything below unless you know what you're doing
@@ -51,17 +57,17 @@ local _export = {};
 local AssetService = game:GetService("AssetService");
 
 -- Internal type with hidden values
-export type ScriptedEditableSpriteInternal = {
-    __raw:ScriptedEditableSprite;
+export type CompositeSpriteInternal = {
+    __raw:CompositeSpriteInternal;
     __stopcon:RBXScriptConnection?;
     __playcon:RBXScriptConnection?;
     __signalcache:{[string]:BindableEvent};
-} & ScriptedEditableSprite;
+} & CompositeSprite;
 
 local ScriptedEditableSprite = {}; do
     ScriptedEditableSprite.__index = ScriptedEditableSprite;
     ScriptedEditableSprite.__tostring = function() return "ScriptedEditableSprite"; end
-    function ScriptedEditableSprite.Play(self:ScriptedEditableSpriteInternal)
+    function ScriptedEditableSprite.Play(self:CompositeSpriteInternal)
         local raw = self.__raw;
         if (raw.isPlaying) then return false; end
         raw.isPlaying = true;
@@ -71,7 +77,7 @@ local ScriptedEditableSprite = {}; do
         local _ev = self.__signalcache["PlayCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
-    function ScriptedEditableSprite.Pause(self:ScriptedEditableSpriteInternal)
+    function ScriptedEditableSprite.Pause(self:CompositeSpriteInternal)
         local raw = self.__raw;
         if (not raw.isPlaying) then return false; end
         raw.isPlaying = false;
@@ -79,16 +85,16 @@ local ScriptedEditableSprite = {}; do
         local _ev = self.__signalcache["PauseCalled"]; _ = _ev and _ev:Fire();
         return true;
     end
-    function ScriptedEditableSprite.Advance(self:ScriptedEditableSpriteInternal)
+    function ScriptedEditableSprite.Advance(self:CompositeSpriteInternal)
         local call = self.onRenderCallback;
         if (call) then call(self); end
     end
 
-    function ScriptedEditableSprite.SetFrame(self:ScriptedEditableSpriteInternal, newframe:Vector2)
+    function ScriptedEditableSprite.SetFrame(self:CompositeSpriteInternal, newframe:Vector3)
         local raw = self.__raw;
         local oldFrame = raw.currentFrame;
         raw.currentFrame = newframe;
-        local input = self.inputImage :: EditableImage;
+        local input = self.inputImages[newframe.Z] or error("Index out of range") :: EditableImage;
         if (not input) then return; end
         local edgeoff = raw.edgeOffset;
         local sprtoff = raw.spriteOffset;
@@ -99,9 +105,10 @@ local ScriptedEditableSprite = {}; do
         local _ev = oldFrame ~= newframe and raw.__signalcache["FrameChanged"]; _ = _ev and _ev:Fire();
     end
 
-    function ScriptedEditableSprite.LoadInputImage(self:ScriptedEditableSpriteInternal, newinput:EditableImage|string)
+    function ScriptedEditableSprite.LoadInputImage(self:CompositeSpriteInternal, newinput, index)
         local raw = self.__raw;
-        raw.inputImage = if type(newinput)~="string" then newinput::EditableImage else AssetService:CreateEditableImageAsync(newinput::string);
+        index = index or #raw.inputImages+1;
+        raw.inputImages[index] = if type(newinput)~="string" then newinput::EditableImage else AssetService:CreateEditableImageAsync(newinput::string);
         self:SetFrame(raw.currentFrame);
     end
 
@@ -111,7 +118,7 @@ local ScriptedEditableSprite = {}; do
         validSignalTypes[i]=true;
     end
 
-    function ScriptedEditableSprite.GetSignal(self:ScriptedEditableSpriteInternal, signalType)
+    function ScriptedEditableSprite.GetSignal(self:CompositeSpriteInternal, signalType)
         local evcache = self.__signalcache;
         local evbind = evcache[signalType];
         if (not evbind) then
@@ -125,11 +132,11 @@ local ScriptedEditableSprite = {}; do
     end
 end
 
-local ProxyMetaNewIndex = function(self:ScriptedEditableSpriteInternal, i:string, v1:any)
+local ProxyMetaNewIndex = function(self:CompositeSpriteInternal, i:string, v1:any)
     local raw = self.__raw;
     local v0 = raw[i];
     if (v0==v1) then return; end
-    if (i=="isLooped" or i=="currentFrame") then
+    if (i=="isLooped" or i=="currentFrame" or i=="inputImages") then
         error(`Property {i} is read-only`);
     end
     raw[i] = v1;
@@ -154,10 +161,10 @@ local ProxyMetaNewIndex = function(self:ScriptedEditableSpriteInternal, i:string
 end
 
 --local config = require(script.Parent.config);
-_export.new = function(props:ScriptedEditableSpriteProps)
+_export.new = function(props:CompositeProps)
 
-    local raw = {} :: ScriptedEditableSpriteInternal;
-    raw.inputImage = nil;
+    local raw = {} :: CompositeSpriteInternal;
+    raw.inputImages = {};
     raw.outputImage = props.outputImage;
     raw.outputPosition = props.outputPosition or Vector2.zero;
     raw.currentFrame = props.currentFrame or Vector2.one;
@@ -179,14 +186,14 @@ _export.new = function(props:ScriptedEditableSpriteProps)
 
     local proxy = newproxy(true);
     local meta = getmetatable(proxy);
-    meta.__tostring = function() return "ScriptedEditableSprite"; end
+    meta.__tostring = function() return "CompositeSprite"; end
     meta.__index = raw;
     meta.__newindex = ProxyMetaNewIndex;
 
-    if (props.inputImage) then
-        proxy:LoadInputImage(props.inputImage);
+    for _,v in pairs(props.inputImages or {}) do
+         proxy:LoadInputImage(v);
     end
-    return proxy::ScriptedEditableSprite;
+    return proxy::CompositeSprite;
 end
 
 return _export;

@@ -26,7 +26,7 @@ type SignalType =
     "FrameChanged" |-- () - fires on frame change
     "PlayCalled" |  -- () - fires when :Play() is called if the sprite isn't playing
     "PauseCalled" | -- () - fires when :Pause() is called if the sprite is playing
-    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: inputImage, outputImage, outputPosition, spriteSize, spriteOffset, edgeOffset, columnCount, frameRate
+    "StaticChanged" -- (propName:string) - fires when a static property has changed, such as: such as: adornee, spriteSheetId, spriteSize, spriteOffset, edgeOffset, frameRate
 
 
 -- Properties parsed to Sprite.new(props), most are optional (aka. can be nil)
@@ -38,7 +38,6 @@ export type ScriptedImageSpriteProps = {
     spriteOffset:       Vector2?;
     edgeOffset:         Vector2?;
     frameRate:          number?;
-    isLooped:           boolean?;
     onRenderCallback:   (self:ScriptedImageSprite)->()?;
 }
 
@@ -168,7 +167,6 @@ _export.new = function(props:ScriptedImageSpriteProps)
     raw.spriteOffset = props.spriteOffset or Vector2.zero;
     raw.edgeOffset = props.edgeOffset or Vector2.zero;
     raw.frameRate = props.frameRate or 30;
-    raw.isLooped = if props.isLooped ~= nil then props.isLooped else true;
     raw.isPlaying = false;
     raw.onRenderCallback = props.onRenderCallback;
     raw.__signalcache = {};
