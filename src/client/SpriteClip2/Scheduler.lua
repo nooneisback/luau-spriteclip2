@@ -65,7 +65,7 @@ end
 
 -- run only if first require
 if (script:GetAttribute("paracheck")==nil) then
-    local currtime = os.clock();
+    local currtime = 0;
 
     local GroupPreBinds:{[string]:BindableEvent} = {};
     local GroupOnBinds:{[string]:BindableEvent} = {};
@@ -97,7 +97,7 @@ if (script:GetAttribute("paracheck")==nil) then
             local gname = bind.Name;
             GroupOnBinds[gname] = bind;
             local delta = 1 / tonumber(gname)::number;
-            GroupLastTimes[gname] = os.clock();
+            GroupLastTimes[gname] = currtime;
             GroupDeltaTimes[gname] = delta;
         elseif (bind.Parent == foldPostRenderSigs) then
             local gname = bind.Name;
@@ -114,6 +114,10 @@ if (script:GetAttribute("paracheck")==nil) then
     foldOnRenderSigs.ChildAdded:Connect(LoadGroup);
     foldPostRenderSigs.ChildAdded:Connect(LoadGroup);
 
+    local function Round3(n:number)
+        return math.round(n*1000)/1000;
+    end
+
     game:GetService("RunService").RenderStepped:Connect(function(d)
         currtime += d;
         if (ispaused) then return; end
@@ -121,12 +125,14 @@ if (script:GetAttribute("paracheck")==nil) then
         for gname, onbind in pairs(GroupOnBinds) do
             local glast = GroupLastTimes[gname];
             local gdelta = GroupDeltaTimes[gname];
+            print(Round3(currtime), Round3(glast), Round3(currtime-glast), Round3(gdelta), (currtime-glast)>=gdelta)
             if ((currtime-glast)<gdelta) then continue; end
             GroupLastTimes[gname] = currtime;
             table.insert(tocall, gname);
             local bind = GroupPreBinds[gname];
             if (bind) then bind:Fire(gdelta); end
         end
+        print(#tocall)
         for _, gname in ipairs(tocall) do
             local bind = GroupOnBinds[gname];
             local gdelta = GroupDeltaTimes[gname];
